@@ -4,15 +4,13 @@
 #include <iostream>
 #include <iomanip>
 #include <chrono>
-#include <queue>
 #include <climits>
 #include <tuple>
 #include <stdlib.h>
+#include <unordered_set>
+#include <vector>
 
 using namespace std;
-
-// Small typedef for ease of reading
-typedef tuple<int, int, int> itriplet;
 
 // Declare functions that will be used
 bool FindPath(pair<int, int> Start,
@@ -21,17 +19,12 @@ bool FindPath(pair<int, int> Start,
     pair<int, int> MapDimensions,
     vector<int>& OutPath);
 
-inline int CalcDistance(int c1, int c2, int width);
-
-template<typename T>
-void PrintVectorToSquare(vector<T>& vec, int width);
-
 int main()
 {
-    
+    /*
     vector<bool> map = {
         1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1,
-        1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1,
         1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1,
         1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1,
         1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1,
@@ -46,16 +39,18 @@ int main()
     pair<int, int> Start(5, 11);
     pair<int, int> Target(5, 1);
     pair<int, int> MapDims(11, 12);
-    
+    */
 
-    /*
-    vector<bool> map = { 
-        1,0,0,0,0,0,0,1};
+    
+    vector<bool> map = {
+        1, 1, 1, 1,
+        0, 1, 0, 1,
+        0, 1, 1, 1
+    };
     
     pair<int,int> Start(0, 0);
-    pair<int, int> Target(7, 0);
-    pair<int, int> MapDims(8, 1);
-    */
+    pair<int, int> Target(1, 2);
+    pair<int, int> MapDims(4, 3);
 
     vector<int> outPath;
     
@@ -85,81 +80,69 @@ bool FindPath(  pair<int, int> Start,
     int iTarget = Target.first  + (int)Target.second* MapDimensions.first;
     if (iStart == iTarget) return true;
 
-    // Setup memory notepads, pointers's a little faster than vectors
-    int* costG = new int[Map.size()]; fill(costG, costG + Map.size(), Map.size()-1);
-    int* parent = new int[Map.size()]; fill(parent, parent + Map.size(), -1);
-    vector<bool> closed(Map.size(), false);
-    
-    // Setup p-queue comparer, tie-breaker as steps to goal.
-    auto compare = [](const itriplet &lhs, const itriplet &rhs)
-    {
-        return get<0>(lhs) > get<0>(rhs) || (get<0>(lhs) == get<0>(rhs) && get<1>(lhs) > get<1>(rhs));
-    };
-    priority_queue<itriplet, vector<itriplet>, decltype(compare)> p_frontier(compare);
-    
+    // Setup memory notepads
+    unordered_set<int> frontiers[2];
+    unordered_set<int> newfrontiers[2];
+    unordered_set<int> visiteds[2];
+    vector<int> parents[2]{ vector<int>(Map.size(),-1),vector<int>(Map.size(),-1) };
+
     // Setup frontier and add starting point
-    costG[iStart] = 0;
-    p_frontier.emplace(itriplet(0, 0, iStart));
+    frontiers[0].insert(iStart);
+    frontiers[1].insert(iTarget);
 
     // neighboor space
     int neigh[4]{ -1,1, -MapDimensions.first, MapDimensions.first };
     bool neighValid[4];
 
+    bool fromStart = true;
+
     // Keep searching while valid frontier exists
-    while (!p_frontier.empty()) {
-        int cursor = get<2>(p_frontier.top());
-        p_frontier.pop();
-
-        //If already evaluated, skip
-        if (closed[cursor]) continue;
-        closed[cursor] = true;
-
+    while (!frontiers[0].empty() && !frontiers[1].empty()) {
         //If cursor is goal, back-trace path and return true
-        if (cursor == iTarget) {
-            while (cursor != iStart) {
-                OutPath.insert(OutPath.begin() + 0, cursor);
-                cursor = parent[cursor];
-            }
-            delete[] costG; delete[] parent;
-            return true;
-        }
-            
-        //Check for valid neighboor-directions
-        neighValid[0] = cursor % MapDimensions.first != 0;
-        neighValid[1] = cursor % MapDimensions.first != MapDimensions.first - 1;
-        neighValid[2] = cursor / MapDimensions.first != 0;
-        neighValid[3] = cursor / MapDimensions.first != MapDimensions.second - 1;
+        for(int cursor : frontiers[fromStart])
+        {
+            if (visiteds[fromStart].find(cursor) != visiteds[fromStart].end()) continue; //borde inte behövas?
+            visiteds[fromStart].insert(cursor);
 
-        //Enqueue neighboors if qualified
-        for (int i = 0; i < 4; i++) {
-            if (!neighValid[i]) continue;
-            int newCur = cursor + neigh[i];
-            if (!closed[newCur] && Map[newCur] && costG[cursor] + 1 < costG[newCur]) {
-                costG[newCur] = costG[cursor] + 1;
-                int costH = CalcDistance(newCur, iTarget, MapDimensions.first);
-                p_frontier.emplace(itriplet(costG[newCur] +costH, costH, newCur));
-                parent[newCur] = cursor;
+            // check if searches have found eachother
+            if (visiteds[!fromStart].find(cursor) != visiteds[!fromStart].end()) {
+                int pather = cursor;
+                while (pather != -1) {
+                    OutPath.push_back(pather);
+                    pather = parents[1][pather];
+                }
+
+                pather = parents[0][cursor];
+                while (pather != iStart && pather != -1) {
+                    OutPath.insert(OutPath.begin(), pather);
+                    pather = parents[0][pather];
+                }
+                return true;
+            }
+            //Check for valid neighboor-directions
+            neighValid[0] = cursor % MapDimensions.first != 0;
+            neighValid[1] = cursor % MapDimensions.first != MapDimensions.first - 1;
+            neighValid[2] = cursor / MapDimensions.first != 0;
+            neighValid[3] = cursor / MapDimensions.first != MapDimensions.second - 1;
+            
+            for (int i = 0; i < 4; i++) {
+                if (!neighValid[i]) continue;
+                int newCursor = cursor + neigh[i];
+                if (Map[newCursor]
+                    && visiteds[fromStart].find(newCursor) == visiteds[fromStart].end()
+                    && newfrontiers[fromStart].find(newCursor) == newfrontiers[fromStart].end()) 
+                {
+                    newfrontiers[fromStart].insert(newCursor);
+                    parents[fromStart][newCursor] = cursor;
+                }
             }
         }
+        
+        frontiers[fromStart].clear();
+        frontiers[fromStart].insert(newfrontiers[fromStart].begin(), newfrontiers[fromStart].end());
+        newfrontiers[fromStart].clear();
+        fromStart = !fromStart;
     }
     // If queue emptied not having reached Target, we return false
-    delete[] costG; delete[] parent;
     return false;
-}
-
-inline int CalcDistance(int c1, int c2, int width) {
-    // Calculate the Manhattan-distance between two single-int coordinates in a grid.
-    return abs(c1 / width - c2 / width) + abs(c1 % width - c2 % width);
-}
-
-template<typename T>
-void PrintVectorToSquare(vector<T>& vec, int width)
-{
-    cout << "****** Begin printing vector as matrix ******" << endl;
-    int cursor = 0;
-    for (int r = 0; r < vec.size() / width; r++) {
-        for (int c = 0; c < width; c++)
-            cout << setw(16) << vec[cursor++];
-        cout << endl;
-    }
 }
