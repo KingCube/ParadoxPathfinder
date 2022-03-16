@@ -12,7 +12,7 @@
 using namespace std;
 
 // Small typedef for ease of reading
-typedef tuple<int, int, long long> itriplet;
+typedef tuple<int, int, int> itriplet;
 
 // Declare functions that will be used
 bool FindPath(pair<int, int> Start,
@@ -21,7 +21,7 @@ bool FindPath(pair<int, int> Start,
     pair<int, int> MapDimensions,
     vector<int>& OutPath);
 
-inline int CalcDistance(long long c1, long long c2, int width);
+inline int CalcDistance(int c1, int c2, int width);
 
 template<typename T>
 void PrintVectorToSquare(vector<T>& vec, int width);
@@ -81,26 +81,17 @@ bool FindPath(  pair<int, int> Start,
                 vector<int>& OutPath) {
     
     // translate input pos's to single-int coordinates
-    int iStart  = Start.first   + Start.second* MapDimensions.first;
-    int iTarget = Target.first  + Target.second* MapDimensions.first;
+    int iStart  = Start.first   + (int)Start.second* MapDimensions.first;
+    int iTarget = Target.first  + (int)Target.second* MapDimensions.first;
     if (iStart == iTarget) return true;
 
-    /*
-    // Setup memory notepads
-    vector<int> costF(Map.size(), INT_MAX);
-    vector<int> costG(Map.size(), INT_MAX);
-    vector<int> parent(Map.size(), -1);
-    vector<bool> closed(Map.size(), false);
-    */
-    
-    // Setup memory notepads
+    // Setup memory notepads, pointers's a little faster than vectors
     int* costF = new int[Map.size()]; fill(costF, costF + Map.size(), INT_MAX);
     int* costG = new int[Map.size()]; fill(costG, costG + Map.size(), INT_MAX);
     int* parent = new int[Map.size()]; fill(parent, parent + Map.size(), -1);
-    bool* closed = new bool[Map.size()]; fill(closed, closed + Map.size(), 0);
+    vector<bool> closed(Map.size(), false);
     
-
-    // Setup p-queue comparer, tie-breaker as recently added.
+    // Setup p-queue comparer, tie-breaker as steps to goal.
     auto compare = [](const itriplet &lhs, const itriplet &rhs)
     {
         return get<0>(lhs) > get<0>(rhs) || (get<0>(lhs) == get<0>(rhs) && get<1>(lhs) > get<1>(rhs));
@@ -119,7 +110,7 @@ bool FindPath(  pair<int, int> Start,
 
     // Keep searching while valid frontier exists
     while (!p_frontier.empty()) {
-        long long cursor = get<2>(p_frontier.top());
+        int cursor = get<2>(p_frontier.top());
         p_frontier.pop();
 
         //If already evaluated, skip
@@ -132,7 +123,7 @@ bool FindPath(  pair<int, int> Start,
                 OutPath.insert(OutPath.begin() + 0, cursor);
                 cursor = parent[cursor];
             }
-            delete[] costF; delete[] costG; delete[] parent; delete[] closed;
+            delete[] costF; delete[] costG; delete[] parent;
             return true;
         }
 
@@ -145,7 +136,7 @@ bool FindPath(  pair<int, int> Start,
         //Enqueue neighboors if qualified
         for (int i = 0; i < 4; i++) {
             if (!neighValid[i]) continue;
-            long long newCur = cursor + neigh[i];
+            int newCur = cursor + neigh[i];
             if (!closed[newCur] && Map[newCur] && costG[cursor] + 1 < costG[newCur]) {
                 costG[newCur] = costG[cursor] + 1;
                 int costH = CalcDistance(newCur, iTarget, MapDimensions.first);
@@ -156,11 +147,11 @@ bool FindPath(  pair<int, int> Start,
         }
     }
     // If queue emptied not having reached Target, we return false
-    delete[] costF; delete[] costG; delete[] parent; delete[] closed;
+    delete[] costF; delete[] costG; delete[] parent;
     return false;
 }
 
-inline int CalcDistance(long long c1, long long c2, int width) {
+inline int CalcDistance(int c1, int c2, int width) {
     // Calculate the Manhattan-distance between two single-int coordinates in a grid.
     return abs(c1 / width - c2 / width) + abs(c1 % width - c2 % width);
 }
