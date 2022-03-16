@@ -86,8 +86,7 @@ bool FindPath(  pair<int, int> Start,
     if (iStart == iTarget) return true;
 
     // Setup memory notepads, pointers's a little faster than vectors
-    int* costF = new int[Map.size()]; fill(costF, costF + Map.size(), INT_MAX);
-    int* costG = new int[Map.size()]; fill(costG, costG + Map.size(), INT_MAX);
+    int* costG = new int[Map.size()]; fill(costG, costG + Map.size(), Map.size()-1);
     int* parent = new int[Map.size()]; fill(parent, parent + Map.size(), -1);
     vector<bool> closed(Map.size(), false);
     
@@ -99,10 +98,8 @@ bool FindPath(  pair<int, int> Start,
     priority_queue<itriplet, vector<itriplet>, decltype(compare)> p_frontier(compare);
     
     // Setup frontier and add starting point
-    int round = 0;
     costG[iStart] = 0;
-    costF[iStart] = CalcDistance(iStart, iTarget, MapDimensions.first);
-    p_frontier.emplace(itriplet(costF[iStart], round++, iStart));
+    p_frontier.emplace(itriplet(0, 0, iStart));
 
     // neighboor space
     int neigh[4]{ -1,1, -MapDimensions.first, MapDimensions.first };
@@ -123,10 +120,10 @@ bool FindPath(  pair<int, int> Start,
                 OutPath.insert(OutPath.begin() + 0, cursor);
                 cursor = parent[cursor];
             }
-            delete[] costF; delete[] costG; delete[] parent;
+            delete[] costG; delete[] parent;
             return true;
         }
-
+            
         //Check for valid neighboor-directions
         neighValid[0] = cursor % MapDimensions.first != 0;
         neighValid[1] = cursor % MapDimensions.first != MapDimensions.first - 1;
@@ -140,14 +137,13 @@ bool FindPath(  pair<int, int> Start,
             if (!closed[newCur] && Map[newCur] && costG[cursor] + 1 < costG[newCur]) {
                 costG[newCur] = costG[cursor] + 1;
                 int costH = CalcDistance(newCur, iTarget, MapDimensions.first);
-                costF[newCur] = costG[newCur] + costH;
+                p_frontier.emplace(itriplet(costG[newCur] +costH, costH, newCur));
                 parent[newCur] = cursor;
-                p_frontier.emplace(itriplet(costF[newCur], costH, newCur));
             }
         }
     }
     // If queue emptied not having reached Target, we return false
-    delete[] costF; delete[] costG; delete[] parent;
+    delete[] costG; delete[] parent;
     return false;
 }
 
